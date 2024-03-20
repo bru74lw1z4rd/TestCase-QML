@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/">
+        <file>Main.qml</file>
+        <file>Elements/Images/SvgImage.qml</file>
+        <file>Elements/Texts/Heading.qml</file>
+        <file>Elements/Texts/SubHeading.qml</file>
+        <file>Elements/Buttons/RoundActionButton.qml</file>
+        <file>qtquickcontrols2.conf</file>
+        <file>Elements/Dialogs/InformationDialog.qml</file>
+    </qresource>
+</RCC>
