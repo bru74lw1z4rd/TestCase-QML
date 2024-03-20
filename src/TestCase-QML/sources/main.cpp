@@ -7,8 +7,11 @@ int main(int argc, char* argv[])
 {
     QGuiApplication app(argc, argv);
 
-    /* Регистрируем C++ классы в qml */
+    /* Регистрируем типы в метасистеме */
+    qRegisterMetaType<QList<QVariantList>>("QList<QVariantList>");
     qRegisterMetaType<FileReader::FileReaderError>("FileReaderError");
+
+    /* Регистрируем C++ классы в qml */
     qmlRegisterType<FileReader>("FileReader", 1, 0, "FileReader");
     initializeFileReaderErrors;
 
