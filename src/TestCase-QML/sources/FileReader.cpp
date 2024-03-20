@@ -36,9 +36,11 @@ bool FileReader::prepareFile(QString filePath)
                 return QString::fromUtf8(file.readAll()).simplified().size();
             });
 
-            setTotalFileLength(result.result());
+            if (result.result() != 0) {
+                setTotalFileLength(result.result());
 
-            return true;
+                return true;
+            }
         }
     }
 
@@ -50,12 +52,15 @@ bool FileReader::prepareFile(QString filePath)
 ///
 void FileReader::startWork()
 {
+    /* Устанавливаем флаг, что на данный момент выполняется работа */
+    setRunning(true);
+
     static_cast<void>(QtConcurrent::run(&m_workThreadPool, [&]() {
         QFile file(m_filePath);
         if (file.open(QIODevice::ReadOnly)) {
-            QTextStream textStream(&file);
+            QRegularExpressionMatchIterator iterator = m_wordRegularExpression.globalMatch(QString::fromUtf8(file.readAll()).simplified());
 
-            while (!textStream.atEnd()) {
+            while (iterator.hasNext()) {
                 /* Каждое исполнение, проверяем, поставил ли пользователь паузу */
                 m_workThreadMutex.lock();
 
@@ -68,7 +73,7 @@ void FileReader::startWork()
 
                     emit workCanceledChanged();
 
-                    break;
+                    return;
                 }
 
                 while (getPause() && m_canceled == false) {
@@ -77,32 +82,97 @@ void FileReader::startWork()
 
                 m_workThreadMutex.unlock();
 
-                /* Начинаем поиск слов с помощью выбранного метода поиска */
-                const QString currentLine = textStream.readLine().simplified();
+                /* Обрабатываем каждый match */
+                QRegularExpressionMatch match = iterator.next();
+                if (match.hasMatch()) {
+                    /*
+                     * Передаем каждое найденное слово в QML
+                     * это нужно для динамического отображения найденных слов.
+                     */
 
-                QRegularExpressionMatchIterator iterator = m_wordRegularExpression.globalMatch(currentLine);
-                while (iterator.hasNext()) {
-                    QRegularExpressionMatch match = iterator.next();
-                    if (match.hasMatch()) {
-                        /*
-                         * Передаем каждое найденное слово в QML
-                         * это нужно для динамического отображения найденных слов.
-                         */
-                        emit newWordFoundChanged(match.captured(0));
+                    if (!match.captured(0).isEmpty()) {
+                        /* Добавляем новое слово в словарь */
+                        m_dictionary.append(QPair<QString, quint32>(match.captured(0), match.captured(0).size()));
+
+                        /* Обновляем текущий прогресс */
+                        setCurrentProgress(m_currentProgress + match.captured(0).size());
                     }
-                }
-
-                if (!currentLine.isEmpty()) {
-                    /* Если у нас имеется новая строка, добавляем +1 */
-                    if (!textStream.atEnd()) {
-                        m_currentProgress += 1;
-                    }
-
-                    setCurrentProgress(m_currentProgress + currentLine.size());
                 }
             }
+
+            /// FIXME: если во время сортировки нажать кнопку отмены, крашнется
+
+            /* Сортируем полученные значения по value */
+            std::sort(m_dictionary.begin(), m_dictionary.end(), [](const QPair<QString, quint32>& firstValue, const QPair<QString, quint32>& secondValue) {
+                return firstValue.second > secondValue.second;
+            });
+
+            /*
+             * Т.к. точно и линейно подсчитывать слишком дорого и долго, то
+             * когда все действия были выполнены, устанавливаем макисимум в progress bar
+             */
+            setCurrentProgress(m_totalFileLength);
+
+            setRunning(false);
         } else {
             emit errorOccured(FileReaderError::OpenError, file.errorString());
         }
     }));
+}
+
+///
+/// \brief FileReader::getLastMostUsableWords - Функция получает топ используемых слов в словаре
+/// \param count - Количество слов, которое будет получено.
+///
+void FileReader::getLastMostUsableWords()
+{
+    if (!m_mostUsableWordsRequested) {
+        static_cast<void>(QtConcurrent::run(&m_workThreadPool, [&]() {
+            /* Помечаем, что пользовательский запрос на получение уже обрабатывается */
+            m_mostUsableWordsRequested = true;
+
+            QList<QVariantList> words;
+
+            /* Сортируем лист, только если в этот момент у нас запущена обработка */
+            if ((m_currentProgress != 0 && m_totalFileLength != 0) && (m_currentProgress != m_totalFileLength)) {
+                QList<QPair<QString, quint32>> tempDictionary = m_dictionary;
+
+                /* Сортируем элементы, т.к. новые элементы не отсортированы */
+                std::sort(tempDictionary.begin(), tempDictionary.end(), [](const QPair<QString, quint32>& firstValue, const QPair<QString, quint32>& secondValue) {
+                    return firstValue.second > secondValue.second;
+                });
+
+                for (quint16 i = 0; i < maxChartBarsCount; ++i) {
+                    /* Проверяем на количество возможных слов */
+                    if (i < tempDictionary.size() && tempDictionary.size() != 0) {
+                        /* Создаем читабельный для QML формат */
+                        QVariantList data;
+                        data.append(tempDictionary.at(i).first);
+                        data.append(tempDictionary.at(i).second);
+
+                        /* Добавляем слово в локальный словрь */
+                        words.append(data);
+                    }
+                }
+            } else {
+                for (quint16 i = 0; i < maxChartBarsCount; ++i) {
+                    /* Проверяем на количество возможных слов */
+                    if (i < m_dictionary.size() && m_dictionary.size() != 0) {
+                        /* Создаем читабельный для QML формат */
+                        QVariantList data;
+                        data.append(m_dictionary.at(i).first);
+                        data.append(m_dictionary.at(i).second);
+
+                        /* Добавляем слово в локальный словрь */
+                        words.append(data);
+                    }
+                }
+            }
+
+            /* Передаем значенияв QML */
+            emit mostUsableWordsChanged(words);
+
+            m_mostUsableWordsRequested = false;
+        }));
+    }
 }

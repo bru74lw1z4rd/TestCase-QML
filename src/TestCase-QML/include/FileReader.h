@@ -1,6 +1,7 @@
 #ifndef FILEREADER_H
 #define FILEREADER_H
 
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QFuture>
@@ -17,12 +18,14 @@ class FileReader : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(bool paused READ getPause WRITE setPause NOTIFY pauseChanged)
+    Q_PROPERTY(bool running READ running NOTIFY runningChanged)
     Q_PROPERTY(quint64 currentProgress READ currentProgress NOTIFY currentProgressChanged)
     Q_PROPERTY(quint64 totalFileLength READ totalFileLength NOTIFY totalFileLengthChanged)
 
 #define androidUri "content:"
 #define maxThreadCount 1
 #define minimumWordLength 2
+#define maxChartBarsCount 15
 
 #define initializeFileReaderErrors qmlRegisterUncreatableType<FileReader>("FileReader.FileReaderError", 1, 0, "FileReaderError", "Cannot initialize FileReaderError in QML");
 
@@ -62,6 +65,21 @@ public:
         }
 
         emit pauseChanged();
+    }
+
+    /***********/
+    /* running */
+    /***********/
+
+    [[nodiscard]] inline bool running() const
+    {
+        return m_running;
+    }
+
+    inline void setRunning(const bool running)
+    {
+        m_running = running;
+        emit runningChanged();
     }
 
     /*******************/
@@ -108,11 +126,19 @@ public slots:
     void startWork();
 
     ///
+    /// \brief getLastMostUsableWords - Функция получает топ используемых слов в словаре
+    /// \param count - Количество слов, которое будет получено.
+    ///
+    void getLastMostUsableWords();
+
+    ///
     /// \brief cancel - Функция отменяет запланированную работу с файлом.
     ///
     inline void cancel()
     {
         m_canceled = true;
+
+        m_dictionary.clear();
     }
 
     ///
@@ -132,11 +158,13 @@ public slots:
     }
 
 signals:
-    void workCanceledChanged();
+    void mostUsableWordsChanged(const QList<QVariantList>& words);
     void newWordFoundChanged(const QString& word);
     void errorOccured(const FileReaderError error, const QString& reason);
+    void workCanceledChanged();
 
     void pauseChanged();
+    void runningChanged();
     void currentProgressChanged();
     void totalFileLengthChanged();
 
@@ -145,15 +173,23 @@ private:
     /***/
     /***/
 
+    bool m_running = false;
     bool m_paused = false;
     bool m_canceled = false;
+    bool m_mostUsableWordsRequested = false;
     quint64 m_currentProgress = 0;
     quint64 m_totalFileLength = 0;
     QString m_filePath;
 
+    /***/
+    /***/
+    /***/
+
     QMutex m_workThreadMutex;
     QWaitCondition m_workThreadWaitCondition;
     QThreadPool m_workThreadPool;
+
+    QList<QPair<QString, quint32>> m_dictionary;
 
     const QStringList acceptableFileFormats { "txt" };
     const QRegularExpression m_wordRegularExpression;
