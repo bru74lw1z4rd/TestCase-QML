@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
+import QtQuick.Controls.Material.impl
 import QtQuick.Dialogs
-import QtCharts
 
 import FileReader
 import FileReader.FileReaderError
@@ -10,6 +10,9 @@ import FileReader.FileReaderError
 import "qrc:/Elements/Buttons"
 import "qrc:/Elements/Dialogs"
 import "qrc:/Elements/Texts"
+
+/// TODO: очищать интерфейс
+/// TODO: скелетоны
 
 ApplicationWindow {
     id: applicationWindow
@@ -23,6 +26,40 @@ ApplicationWindow {
 
     minimumWidth: 640
     minimumHeight: 480
+
+    QtObject {
+        id: privates
+
+        readonly property int maxChartBars: 15
+    }
+
+    /***********/
+    /* Таймеры */
+    /***********/
+
+    Timer {
+        id: dynamicWordsChangerTimer
+
+        interval: 500
+        running: (fileReader.paused === false && fileReader.running === true) ? true : false
+        repeat: true
+
+        onTriggered: {
+            fileReader.getLastMostUsableWords()
+        }
+    }
+
+    Timer {
+        id: textCountTimer
+
+        interval: 1000
+        running: (fileReader.paused === false && fileReader.running === true) ? true : false
+        repeat: true
+
+        onTriggered: {
+            wordsCountText.text = "Количество слов: " + fileReader.currentProgress
+        }
+    }
 
     /**********/
     /* Шрифты */
@@ -98,8 +135,155 @@ ApplicationWindow {
                 bottom: parent.bottom
             }
         }
+
+        Heading {
+            id: wordsCountText
+
+            text: qsTr("Количество слов: 0")
+
+            color: "#edeef2"
+
+            font.pointSize: 16
+
+            horizontalAlignment: Text.AlignRight
+
+            wrapMode: Text.NoWrap
+
+            anchors {
+                top: parent.top
+                left: titleText.right
+                right: parent.right
+                bottom: parent.bottom
+
+                leftMargin: 10
+            }
+        }
     }
 
+    ListView {
+        id: barChart
+
+        readonly property var barsPallete: [ "#007f5f", "#2b9348", "#55a630", "#80b918", "#168aad", "#52b69a", "#76c893", "#99d98c", "#b5e48c", "#56cfe1", "#64dfdf", "#64dfdf", "#72efdd", "#d9ed92", "#eeef20"]
+
+        clip: true
+        interactive: true
+
+        model: ListModel { }
+
+        spacing: 40
+
+        boundsBehavior: Flickable.StopAtBounds
+
+        function addNewWord(wordName, wordCount, maxWordWidth) {
+            if (barChart.count < privates.maxChartBars) {
+                barChart.model.append({
+                                          "wordName": wordName,
+                                          "wordCount": wordCount,
+                                          "maxWordWidth": maxWordWidth
+                                      })
+            }
+        }
+
+        anchors {
+            top: informationBar.bottom
+            left: informationBar.left
+            right: informationBar.right
+            bottom: mainWorkButton.top
+
+            topMargin: 20
+            bottomMargin: 20
+        }
+
+        delegate: Item {
+            height: 40
+            width: barChart.width
+
+            SubHeading {
+                id: chartText
+
+                width: (applicationWindow.width < 400) ? 100 : 200
+
+                text: wordName
+
+                font.pointSize: 12
+
+                horizontalAlignment: Text.AlignLeft
+                wrapMode: Text.NoWrap
+
+                anchors {
+                    verticalCenter: chatBar.verticalCenter
+
+                    left: parent.left
+
+                    leftMargin: 20
+                }
+            }
+
+            ProgressBar {
+                id: chatBar
+
+                from: 0
+                to: maxWordWidth
+
+                value: wordCount
+
+                contentItem: ProgressBarImpl {
+                    implicitHeight: 20
+
+                    color: chatBar.Material.accentColor
+
+                    progress: chatBar.position
+
+                    scale: chatBar.mirrored ? -1 : 1
+                    indeterminate: chatBar.visible && chatBar.indeterminate
+                }
+
+                background: Rectangle {
+                    y: (chatBar.height - height) / 2
+
+                    height: 20
+
+                    implicitWidth: 200
+                    implicitHeight: 20
+
+                    color: Qt.rgba(chatBar.Material.accentColor.r, chatBar.Material.accentColor.g, chatBar.Material.accentColor.b, 0.25)
+                }
+
+                anchors {
+                    top: parent.top
+                    left: chartText.right
+                    right: wordCountText.left
+                    bottom: parent.bottom
+
+                    leftMargin: 30
+                    rightMargin: 30
+                }
+            }
+
+            SubHeading {
+                id: wordCountText
+
+                width: 65
+
+                text: wordCount
+
+                font.pointSize: 12
+
+                horizontalAlignment: Text.AlignLeft
+                wrapMode: Text.NoWrap
+
+                anchors {
+                    verticalCenter: chatBar.verticalCenter
+
+                    right: parent.right
+
+                    leftMargin: 20
+                }
+            }
+        }
+    }
+
+    /// TODO: при рефакторинге объеденить в item
     ProgressBar {
         id: progressBar
 
@@ -284,27 +468,14 @@ ApplicationWindow {
             }
         }
     }
+    ///
+
+    /***************/
+    /* Connections */
+    /***************/
 
     Connections {
         target: fileReader
-
-        function onTotalFileLengthChanged() {
-            progressBar.to = fileReader.totalFileLength
-        }
-
-        function onCurrentProgressChanged() {
-            if (fileReader.currentProgress === fileReader.totalFileLength) {
-                mainWorkButton.state = "idle"
-
-                informationDialog.show(qsTr("Файл был успешно прочитан. Полную статистику по словам можно посмотреть на графике."))
-            } else {
-                progressBar.value = fileReader.currentProgress
-            }
-        }
-
-        function onNewWordFoundChanged(word) {
-            // console.log(word)
-        }
 
         function onErrorOccured(error) {
             if (mainWorkButton.state === "working") {
@@ -312,6 +483,35 @@ ApplicationWindow {
             }
 
             informationDialog.show(qsTr("Не удалось запустить обработку файла!"))
+        }
+
+        function onCurrentProgressChanged() {
+            if (fileReader.currentProgress >= fileReader.totalFileLength) {
+                mainWorkButton.state = "idle"
+
+                /* Обновления интерфейс конечными значениями */
+                fileReader.getLastMostUsableWords()
+                wordsCountText.text = "Количество слов: " + fileReader.currentProgress
+
+                informationDialog.show(qsTr("Файл был успешно прочитан. Полную статистику по словам можно посмотреть на графике."))
+            } else {
+                progressBar.value = fileReader.currentProgress
+            }
+        }
+
+        function onTotalFileLengthChanged() {
+            progressBar.to = fileReader.totalFileLength
+        }
+
+        function onMostUsableWordsChanged(words) {
+            if (words.length <= privates.maxChartBars) {
+                barChart.model.clear()
+
+                for (let i = 0; i < words.length; ++i) {
+
+                    barChart.addNewWord(words[i][0], words[i][1], words[0][1])
+                }
+            }
         }
 
         function onWorkCanceledChanged() {
