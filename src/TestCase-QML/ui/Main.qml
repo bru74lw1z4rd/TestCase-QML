@@ -8,11 +8,9 @@ import FileReader
 import FileReader.FileReaderError
 
 import "qrc:/Elements/Buttons"
+import "qrc:/Elements/Images"
 import "qrc:/Elements/Dialogs"
 import "qrc:/Elements/Texts"
-
-/// TODO: очищать интерфейс
-/// TODO: скелетоны
 
 ApplicationWindow {
     id: applicationWindow
@@ -31,6 +29,13 @@ ApplicationWindow {
         id: privates
 
         readonly property int maxChartBars: 15
+
+        function clearUi() {
+            /* Очищаем предыдущие данные, если таковы имеются */
+            barChart.model.clear()
+
+            wordsCountText.text = ""
+        }
     }
 
     /***********/
@@ -105,6 +110,62 @@ ApplicationWindow {
     /* Элементы стринцы */
     /********************/
 
+    Item {
+        id: statusItem
+
+        height: 200
+        width: applicationWindow.width / 2
+
+        visible: (barChart.model.count > 0) ? false : true
+
+        anchors {
+            centerIn: parent
+        }
+
+        SvgImage {
+            id: statusItemIcon
+
+            height: 80
+            width: height
+
+            imageSource: "qrc:/emoji/smart.svg"
+
+            anchors {
+                horizontalCenter: parent.horizontalCenter
+
+                top: parent.top
+            }
+        }
+
+        Heading {
+            id: statusItemHeading
+
+            text: qsTr("Выберите файл для подсчета файлов")
+
+            font.pointSize: 23
+
+            anchors {
+                top: statusItemIcon.bottom
+                left: parent.left
+                right: parent.right
+
+                topMargin: 10
+            }
+        }
+
+        SubHeading {
+            id: statusItemSubHeading
+
+            text: qsTr("Чтобы программа начала работала, требуется выбрать файл формата .txt")
+
+            anchors {
+                top: statusItemHeading.bottom
+                left: parent.left
+                right: parent.right
+            }
+        }
+    }
+
     Pane {
         id: informationBar
 
@@ -139,8 +200,6 @@ ApplicationWindow {
         Heading {
             id: wordsCountText
 
-            text: qsTr("Количество слов: 0")
-
             color: "#edeef2"
 
             font.pointSize: 16
@@ -163,8 +222,6 @@ ApplicationWindow {
     ListView {
         id: barChart
 
-        readonly property var barsPallete: [ "#007f5f", "#2b9348", "#55a630", "#80b918", "#168aad", "#52b69a", "#76c893", "#99d98c", "#b5e48c", "#56cfe1", "#64dfdf", "#64dfdf", "#72efdd", "#d9ed92", "#eeef20"]
-
         clip: true
         interactive: true
 
@@ -184,11 +241,17 @@ ApplicationWindow {
             }
         }
 
+        function changeItemIndex(itemIndex, wordName, wordCount, maxWordWidth) {
+            barChart.model.setProperty(itemIndex, "wordName", wordName)
+            barChart.model.setProperty(itemIndex, "wordCount", wordCount)
+            barChart.model.setProperty(itemIndex, "maxWordWidth", maxWordWidth)
+        }
+
         anchors {
             top: informationBar.bottom
             left: informationBar.left
             right: informationBar.right
-            bottom: mainWorkButton.top
+            bottom: actionItem.top
 
             topMargin: 20
             bottomMargin: 20
@@ -219,13 +282,27 @@ ApplicationWindow {
                 }
             }
 
-            ProgressBar {
+            ProgressBar { /// NOTE: не, ну должен же был я хоть немного в тестовом поугарать :p
                 id: chatBar
 
                 from: 0
                 to: maxWordWidth
 
                 value: wordCount
+
+                Behavior on value {
+                    NumberAnimation {
+                        duration: 2000
+                        easing.type: Easing.OutQuart
+                    }
+                }
+
+                Behavior on to {
+                    NumberAnimation {
+                        duration: 1000
+                        easing.type: Easing.OutCubic
+                    }
+                }
 
                 contentItem: ProgressBarImpl {
                     implicitHeight: 20
@@ -283,192 +360,206 @@ ApplicationWindow {
         }
     }
 
-    /// TODO: при рефакторинге объеденить в item
-    ProgressBar {
-        id: progressBar
-
-        z: 1
-
-        height: 40
-
-        from: 0
-        to: 100
-
-        anchors {
-            verticalCenter: cancelWorkButton.verticalCenter
-
-            left: parent.left
-            right: cancelWorkButton.left
-
-            margins: 50
-        }
-    }
-
-    RoundActionButton {
-        id: cancelWorkButton
+    Item {
+        id: actionItem
 
         height: mainWorkButton.height
-        width: height
-
-        iconSource: "qrc:/icons/cancel.svg"
 
         anchors {
-            right: mainWorkButton.left
-            bottom: mainWorkButton.bottom
-
-            rightMargin: 10
-        }
-
-        onClicked: {
-            /*
-             * Обнуляем все состояния до начальных,
-             * т.к. пользователь нажал кнопку отмены
-             */
-
-            if (mainWorkButton.state === "working" || mainWorkButton.state === "paused") {
-                /*
-                 * Если обработка была остановлена, возобновляем,
-                 * чтобы в дальнейшем отменить операцию
-                 */
-                if (fileReader.paused === true) {
-                    fileReader.resume()
-                }
-
-                fileReader.cancel()
-            } else if (mainWorkButton.state === "prepared") {
-                mainWorkButton.state = "idle"
-            }
-        }
-    }
-
-    RoundActionButton {
-        id: mainWorkButton
-
-        height: (Qt.platform.os === "ios" || Qt.platform.os === "android") ? 65 : 60
-        width: height
-
-        state: "idle"
-
-        states: [
-            State {
-                name: "idle"
-
-                PropertyChanges {
-                    target: mainWorkButton
-
-                    iconSource: "qrc:/icons/plus.svg"
-                }
-
-                PropertyChanges {
-                    target: cancelWorkButton
-
-                    visible: false
-                }
-
-                PropertyChanges {
-                    target: progressBar
-
-                    visible: false
-                }
-            },
-
-            State {
-                name: "prepared"
-
-                PropertyChanges {
-                    target: mainWorkButton
-
-                    iconSource: "qrc:/icons/play.svg"
-                }
-
-                PropertyChanges {
-                    target: cancelWorkButton
-
-                    visible: true
-                }
-
-                PropertyChanges {
-                    target: progressBar
-
-                    visible: false
-                }
-            },
-
-            State {
-                name: "working"
-
-                PropertyChanges {
-                    target: mainWorkButton
-
-                    iconSource: "qrc:/icons/pause.svg"
-                }
-
-                PropertyChanges {
-                    target: cancelWorkButton
-
-                    visible: true
-                }
-
-                PropertyChanges {
-                    target: progressBar
-
-                    visible: true
-                }
-            },
-
-            State {
-                name: "paused"
-
-                PropertyChanges {
-                    target: mainWorkButton
-
-                    iconSource: "qrc:/icons/play.svg"
-                }
-
-                PropertyChanges {
-                    target: cancelWorkButton
-
-                    visible: true
-                }
-
-                PropertyChanges {
-                    target: progressBar
-
-                    visible: true
-                }
-            }
-        ]
-
-        anchors {
+            left: parent.left
             right: parent.right
             bottom: parent.bottom
-
-            margins: 10
         }
 
-        onClicked: {
-            if (state === "idle") {
-                fileDialog.open()
-            } else if (state === "prepared") {
-                /* Начинаем обработку текстового файла */
-                fileReader.startWork()
+        ProgressBar {
+            id: progressBar
 
-                /* Обновляем состояние кнопки */
-                mainWorkButton.state = "working"
-            } else if (state === "working" || state === "paused") {
-                if (fileReader.paused === true) {
-                    fileReader.resume()
+            z: 1
 
+            height: 40
+
+            from: 0
+            to: 100
+
+            anchors {
+                verticalCenter: cancelWorkButton.verticalCenter
+
+                left: parent.left
+                right: cancelWorkButton.left
+
+                margins: 50
+            }
+        }
+
+        RoundActionButton {
+            id: cancelWorkButton
+
+            height: mainWorkButton.height
+            width: height
+
+            iconSource: "qrc:/icons/cancel.svg"
+
+            anchors {
+                right: mainWorkButton.left
+                bottom: mainWorkButton.bottom
+
+                rightMargin: 10
+            }
+
+            onClicked: {
+                /*
+                 * Обнуляем все состояния до начальных,
+                 * т.к. пользователь нажал кнопку отмены
+                 */
+
+                if (mainWorkButton.state === "working" || mainWorkButton.state === "paused") {
+                    /*
+                     * Если обработка была остановлена, возобновляем,
+                     * чтобы в дальнейшем отменить операцию
+                     */
+                    if (fileReader.paused === true) {
+                        fileReader.resume()
+                    }
+
+                    fileReader.cancel()
+                } else if (mainWorkButton.state === "prepared") {
+                    mainWorkButton.state = "idle"
+                } else if (mainWorkButton.state === "idle" && barChart.model.count !== 0) {
+                    privates.clearUi()
+                }
+            }
+        }
+
+        RoundActionButton {
+            id: mainWorkButton
+
+            height: (Qt.platform.os === "ios" || Qt.platform.os === "android") ? 65 : 60
+            width: height
+
+            state: "idle"
+
+            states: [
+                State {
+                    name: "idle"
+
+                    PropertyChanges {
+                        target: mainWorkButton
+
+                        iconSource: "qrc:/icons/plus.svg"
+                    }
+
+                    PropertyChanges {
+                        target: cancelWorkButton
+
+                        visible: (barChart.model.count !== 0) ? true : false
+                    }
+
+                    PropertyChanges {
+                        target: progressBar
+
+                        visible: false
+                    }
+                },
+
+                State {
+                    name: "prepared"
+
+                    PropertyChanges {
+                        target: mainWorkButton
+
+                        iconSource: "qrc:/icons/play.svg"
+                    }
+
+                    PropertyChanges {
+                        target: cancelWorkButton
+
+                        visible: true
+                    }
+
+                    PropertyChanges {
+                        target: progressBar
+
+                        visible: false
+                    }
+                },
+
+                State {
+                    name: "working"
+
+                    PropertyChanges {
+                        target: mainWorkButton
+
+                        iconSource: "qrc:/icons/pause.svg"
+                    }
+
+                    PropertyChanges {
+                        target: cancelWorkButton
+
+                        visible: true
+                    }
+
+                    PropertyChanges {
+                        target: progressBar
+
+                        visible: true
+                    }
+                },
+
+                State {
+                    name: "paused"
+
+                    PropertyChanges {
+                        target: mainWorkButton
+
+                        iconSource: "qrc:/icons/play.svg"
+                    }
+
+                    PropertyChanges {
+                        target: cancelWorkButton
+
+                        visible: true
+                    }
+
+                    PropertyChanges {
+                        target: progressBar
+
+                        visible: true
+                    }
+                }
+            ]
+
+            anchors {
+                right: parent.right
+                bottom: parent.bottom
+
+                margins: 10
+            }
+
+            onClicked: {
+                if (state === "idle") {
+                    privates.clearUi()
+
+                    fileDialog.open()
+                } else if (state === "prepared") {
+                    /* Начинаем обработку текстового файла */
+                    fileReader.startWork()
+
+                    /* Обновляем состояние кнопки */
                     mainWorkButton.state = "working"
-                } else {
-                    fileReader.pause()
+                } else if (state === "working" || state === "paused") {
+                    if (fileReader.paused === true) {
+                        fileReader.resume()
 
-                    mainWorkButton.state = "paused"
+                        mainWorkButton.state = "working"
+                    } else {
+                        fileReader.pause()
+
+                        mainWorkButton.state = "paused"
+                    }
                 }
             }
         }
     }
-    ///
 
     /***************/
     /* Connections */
@@ -503,13 +594,19 @@ ApplicationWindow {
             progressBar.to = fileReader.totalFileLength
         }
 
+        function onRunningChanged() {
+            /* Добваляем скелетоны */
+            let skeletonsCount = (fileReader.totalFileLength >= privates.maxChartBars) ? privates.maxChartBars : fileReader.totalFileLength
+
+            for (let i = 0; i < skeletonsCount; ++i) {
+                barChart.addNewWord("...", 0, 50)
+            }
+        }
+
         function onMostUsableWordsChanged(words) {
             if (words.length <= privates.maxChartBars) {
-                barChart.model.clear()
-
                 for (let i = 0; i < words.length; ++i) {
-
-                    barChart.addNewWord(words[i][0], words[i][1], words[0][1])
+                    barChart.changeItemIndex(i, words[i][0], words[i][1], words[0][1])
                 }
             }
         }
