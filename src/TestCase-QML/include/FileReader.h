@@ -7,6 +7,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QObject>
+#include <QRegularExpression>
 #include <QTextStream>
 #include <QThreadPool>
 #include <QUrl>
@@ -154,8 +155,8 @@ private:
     QWaitCondition m_workThreadWaitCondition;
     QThreadPool m_workThreadPool;
 
-    const QString splitSymbol = " ";
     const QStringList acceptableFileFormats { "txt" };
+    const QRegularExpression m_wordRegularExpression;
 };
 
 Q_DECLARE_METATYPE(FileReader::FileReaderError)

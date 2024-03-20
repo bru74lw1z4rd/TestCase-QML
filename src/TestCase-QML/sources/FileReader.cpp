@@ -2,6 +2,7 @@
 
 FileReader::FileReader(QObject* parent)
     : QObject { parent }
+    , m_wordRegularExpression(QString("[\\p{L}]{%1,}").arg(minimumWordLength))
 {
 }
 
@@ -25,15 +26,20 @@ bool FileReader::prepareFile(QString filePath)
         m_currentProgress = 0;
         m_totalFileLength = 0;
 
-        /*
-         * Считываем количество символов в тексте,
-         * это понадобится для progress бара.
-         *
-         * Т.к. у нас текстовый файл, то размер файла будет = количеству символов.
-         */
-        setTotalFileLength(fileInfo.size());
+        QFile file(filePath);
+        if (file.open(QIODevice::ReadOnly)) {
+            /*
+             * Считываем количество символов в тексте,
+             * это понадобится для progress бара.
+             */
+            QFuture<qsizetype> result = QtConcurrent::run(&m_workThreadPool, [&]() {
+                return QString::fromUtf8(file.readAll()).simplified().size();
+            });
 
-        return true;
+            setTotalFileLength(result.result());
+
+            return true;
+        }
     }
 
     return false;
@@ -72,26 +78,30 @@ void FileReader::startWork()
                 m_workThreadMutex.unlock();
 
                 /* Начинаем поиск слов с помощью выбранного метода поиска */
-                const QStringList words = textStream.readLine().split(splitSymbol);
+                const QString currentLine = textStream.readLine().simplified();
 
-                for (const QString& word : words) {
-                    if (word.length() > minimumWordLength) {
+                QRegularExpressionMatchIterator iterator = m_wordRegularExpression.globalMatch(currentLine);
+                while (iterator.hasNext()) {
+                    QRegularExpressionMatch match = iterator.next();
+                    if (match.hasMatch()) {
                         /*
                          * Передаем каждое найденное слово в QML
                          * это нужно для динамического отображения найденных слов.
                          */
-                        emit newWordFoundChanged(word);
+                        emit newWordFoundChanged(match.captured(0));
                     }
-
-                    /* Добавляем размер 'splitSymbol', т.к. до этого мы удаляли этот символ из текста */
-                    setCurrentProgress(m_currentProgress + word.length() + splitSymbol.size());
                 }
 
-                // QThread::msleep(500); /// DEBUG
+                if (!currentLine.isEmpty()) {
+                    /* Если у нас имеется новая строка, добавляем +1 */
+                    if (!textStream.atEnd()) {
+                        m_currentProgress += 1;
+                    }
+
+                    setCurrentProgress(m_currentProgress + currentLine.size());
+                }
             }
         } else {
-            qDebug() << file.errorString() << m_filePath;
-
             emit errorOccured(FileReaderError::OpenError, file.errorString());
         }
     }));
