@@ -170,9 +170,9 @@ signals:
     void totalFileLengthChanged();
 
 private:
-    /***/
-    /***/
-    /***/
+    /*******/
+    /* QML */
+    /*******/
 
     bool m_running = false;
     bool m_paused = false;
@@ -182,9 +182,9 @@ private:
     quint64 m_totalFileLength = 0;
     QString m_filePath;
 
-    /***/
-    /***/
-    /***/
+    /**********/
+    /* Worker */
+    /**********/
 
     QMutex m_workThreadMutex;
     QWaitCondition m_workThreadWaitCondition;
