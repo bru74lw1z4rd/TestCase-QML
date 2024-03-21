@@ -5,10 +5,10 @@ QT += svg
 CONFIG += c++17
 
 HEADERS += \
-    include/FileReader.h
+    include/FileReader/FileReader.h
 
 SOURCES += \
-    sources/FileReader.cpp \
+    sources/FileReader/FileReader.cpp \
     sources/main.cpp
 
 RESOURCES += \

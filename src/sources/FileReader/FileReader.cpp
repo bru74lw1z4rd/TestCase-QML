@@ -1,4 +1,4 @@
-#include "include/FileReader.h"
+#include "include/FileReader/FileReader.h"
 
 FileReader::FileReader(QObject* parent)
     : QObject { parent }
