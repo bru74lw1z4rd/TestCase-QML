@@ -7,5 +7,7 @@
         <file>Elements/Buttons/RoundActionButton.qml</file>
         <file>qtquickcontrols2.conf</file>
         <file>Elements/Dialogs/InformationDialog.qml</file>
+        <file>Elements/Items/StatusItem.qml</file>
+        <file>Elements/Charts/BarChart.qml</file>
     </qresource>
 </RCC>
