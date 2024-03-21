@@ -392,7 +392,7 @@ ApplicationWindow {
         target: fileReader
 
         function onCurrentProgressChanged() {
-            if ((fileReader.currentProgress >= fileReader.totalFileLength) && mainWorkButton.state != "idle") {
+            if ((fileReader.currentProgress >= fileReader.totalFileLength) && mainWorkButton.state !== "idle") {
                 /* Включаем кнопки */
                 actionItem.enabled = true
 
@@ -448,7 +448,7 @@ ApplicationWindow {
         }
 
         function onMostUsableWordsChanged(words) {
-            if (words.length <= privates.maxChartBars && mainWorkButton.state !== "idle") {
+            if (words.length <= privates.maxChartBars) {
                 for (let i = 0; i < words.length; ++i) {
                     barChart.changeItemIndex(i, words[i][0], words[i][1], words[0][1])
                 }
