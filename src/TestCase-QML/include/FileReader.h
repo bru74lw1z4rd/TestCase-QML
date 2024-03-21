@@ -14,6 +14,9 @@
 #include <QUrl>
 #include <QtConcurrent>
 
+///
+/// \brief The FileReader class - Класс занимается обработкой файлов и подсчитыванием слов в этих файлах.
+///
 class FileReader : public QObject {
     Q_OBJECT
 
@@ -24,7 +27,7 @@ class FileReader : public QObject {
 
 #define androidUri "content:"
 #define maxThreadCount 1
-#define minimumWordLength 2
+#define minimumWordLength 3
 #define maxChartBarsCount 15
 
 #define initializeFileReaderErrors qmlRegisterUncreatableType<FileReader>("FileReader.FileReaderError", 1, 0, "FileReaderError", "Cannot initialize FileReaderError in QML");
@@ -39,7 +42,8 @@ public:
     enum class FileReaderError {
         NoError = 0,
         OpenError = 1,
-        ReadingError = 2
+        PreparingFileError = 2,
+        ReadingError = 3
     };
     Q_ENUM(FileReaderError)
 
@@ -116,9 +120,8 @@ public slots:
     ///
     /// \brief prepareFile - Функция подготавливает файл к дальнейшей обработке.
     /// \param filePath - Путь к файлу в системе.
-    /// \return Возвращает 'true', если удалось подготовить файл для дальнейшего чтения и 'false' при ошибке.
     ///
-    [[nodiscard]] bool prepareFile(QString filePath);
+    void prepareFile(QString filePath);
 
     ///
     /// \brief startWork - Функция запускает работу по считыванию слов в файле.
@@ -138,7 +141,7 @@ public slots:
     {
         m_canceled = true;
 
-        m_dictionary.clear();
+        m_wordsList.clear();
     }
 
     ///
@@ -159,6 +162,7 @@ public slots:
 
 signals:
     void disableCanceling();
+    void prepareFileChanged();
     void errorOccured(const FileReaderError error, const QString& reason);
     void mostUsableWordsChanged(const QList<QVariantList>& words);
     void newWordFoundChanged(const QString& word);
@@ -186,11 +190,13 @@ private:
     /* Worker */
     /**********/
 
+    QMutex m_wordsListMutext;
     QMutex m_workThreadMutex;
     QWaitCondition m_workThreadWaitCondition;
     QThreadPool m_workThreadPool;
 
-    QList<QPair<QString, quint32>> m_dictionary;
+    QHash<QString, quint32> m_wordsDictionary;
+    QList<QPair<QString, quint32>> m_wordsList;
 
     const QStringList acceptableFileFormats { "txt" };
     const QRegularExpression m_wordRegularExpression;

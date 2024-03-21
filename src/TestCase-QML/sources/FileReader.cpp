@@ -9,9 +9,8 @@ FileReader::FileReader(QObject* parent)
 ///
 /// \brief FileReader::prepareFile - Функция проверяет файл и готовит его к дальнейшей обработке.
 /// \param filePath - Путь к файлу в системе.
-/// \return Возвращает 'true', если удалось подготовить файл для дальнейшего чтения и 'false' при ошибке.
 ///
-bool FileReader::prepareFile(QString filePath)
+void FileReader::prepareFile(QString filePath)
 {
     if (!filePath.startsWith(androidUri) && QUrl(filePath).isLocalFile()) {
         filePath = QUrl(filePath).toLocalFile();
@@ -25,27 +24,37 @@ bool FileReader::prepareFile(QString filePath)
         m_canceled = false;
         m_currentProgress = 0;
         m_totalFileLength = 0;
-        m_dictionary.clear();
+        m_wordsList.clear();
+        m_wordsDictionary.clear();
 
-        QFile file(filePath);
-        if (file.open(QIODevice::ReadOnly)) {
-            /*
-             * Считываем количество символов в тексте,
-             * это понадобится для progress бара.
-             */
-            QFuture<qsizetype> result = QtConcurrent::run(&m_workThreadPool, [&]() {
-                return QString::fromUtf8(file.readAll()).simplified().size();
-            });
+        /*
+         * Считываем количество символов в тексте,
+         * это понадобится для progress бара.
+         */
+        static_cast<void>(QtConcurrent::run(&m_workThreadPool, [&]() {
+            QFile file(m_filePath);
+            if (file.open(QIODevice::ReadOnly)) {
+                if (file.size() > QString::fromUtf8(file.read(minimumWordLength)).size()) {
+                    emit prepareFileChanged();
+                } else {
+                    emit errorOccured(FileReaderError::PreparingFileError, "Empty file");
+                }
 
-            if (result.result() != 0) {
-                setTotalFileLength(result.result());
+                /* Подсчитываем общее кол-во слов */
+                QRegularExpressionMatchIterator iterator = m_wordRegularExpression.globalMatch(QString::fromUtf8(file.readAll()).simplified());
 
-                return true;
+                while (iterator.hasNext()) {
+                    iterator.next();
+
+                    m_totalFileLength += 1;
+                }
+
+                setTotalFileLength(m_totalFileLength);
             }
-        }
+        }));
+    } else {
+        emit errorOccured(FileReaderError::PreparingFileError, "Uknown Error");
     }
-
-    return false;
 }
 
 ///
@@ -92,29 +101,40 @@ void FileReader::startWork()
                      */
 
                     if (!match.captured(0).isEmpty()) {
-                        /* Добавляем новое слово в словарь */
-                        m_dictionary.append(QPair<QString, quint32>(match.captured(0), match.captured(0).size()));
+                        /* Вставляет данные в словарь для подсчета */
+                        m_wordsDictionary.insert(match.captured(), m_wordsDictionary.value(match.captured()) + 1);
 
-                        /* Обновляем текущий прогресс */
-                        setCurrentProgress(m_currentProgress + match.captured(0).size());
+                        /*
+                         * Т.к. QHash не сортируется, требуется создать QList,
+                         * который будет отсортирован, данные операции с QList значительно замедляют код,
+                         * но делают UI более живым.
+                         */
+                        QList<QPair<QString, quint32>>::Iterator searchIterator = std::find_if(m_wordsList.begin(), m_wordsList.end(), [match](const QPair<QString, quint32>& firstValue) {
+                            return firstValue.first == match.captured();
+                        });
+
+                        if (searchIterator != m_wordsList.end()) {
+                            searchIterator->second = m_wordsDictionary.value(match.captured());
+                        } else {
+                            m_wordsList.append(QPair<QString, quint32>(match.captured(), m_wordsDictionary.value(match.captured())));
+                        }
+
+                        /*  Обновляем текущий прогресс */
+                        if (m_currentProgress + 1 < m_totalFileLength) {
+                            setCurrentProgress(m_currentProgress + 1);
+                        }
                     }
                 }
             }
 
-            /*
-             * Отключаем возможность паузы и остановки в самом конце процесса подсчета слов,
-             * т.к. это опасно и банально бесполезно
-             */
-            emit disableCanceling();
-
             /* Сортируем полученные значения по value */
-            std::sort(m_dictionary.begin(), m_dictionary.end(), [](const QPair<QString, quint32>& firstValue, const QPair<QString, quint32>& secondValue) {
+            std::sort(m_wordsList.begin(), m_wordsList.end(), [](const QPair<QString, quint32>& firstValue, const QPair<QString, quint32>& secondValue) {
                 return firstValue.second > secondValue.second;
             });
 
             /*
-             * Т.к. точно и линейно подсчитывать слишком дорого и долго, то
-             * когда все действия были выполнены, устанавливаем макисимум в progress bar
+             * Чтобы избежать непредвиденных обстоятельств,
+             * устанавилваем максимумальный прогресс.
              */
             setCurrentProgress(m_totalFileLength);
 
@@ -136,11 +156,13 @@ void FileReader::getLastMostUsableWords()
             /* Помечаем, что пользовательский запрос на получение уже обрабатывается */
             m_mostUsableWordsRequested = true;
 
+            QMutexLocker locker(&m_wordsListMutext);
+
             QList<QVariantList> words;
 
             /* Сортируем лист, только если в этот момент у нас запущена обработка */
             if ((m_currentProgress != 0 && m_totalFileLength != 0) && (m_currentProgress != m_totalFileLength)) {
-                QList<QPair<QString, quint32>> tempDictionary = m_dictionary;
+                QList<QPair<QString, quint32>> tempDictionary = m_wordsList;
 
                 /* Сортируем элементы, т.к. новые элементы не отсортированы */
                 std::sort(tempDictionary.begin(), tempDictionary.end(), [](const QPair<QString, quint32>& firstValue, const QPair<QString, quint32>& secondValue) {
@@ -162,11 +184,11 @@ void FileReader::getLastMostUsableWords()
             } else {
                 for (quint16 i = 0; i < maxChartBarsCount; ++i) {
                     /* Проверяем на количество возможных слов */
-                    if (i < m_dictionary.size() && m_dictionary.size() != 0) {
+                    if (i < m_wordsList.size() && m_wordsList.size() != 0) {
                         /* Создаем читабельный для QML формат */
                         QVariantList data;
-                        data.append(m_dictionary.at(i).first);
-                        data.append(m_dictionary.at(i).second);
+                        data.append(m_wordsList.at(i).first);
+                        data.append(m_wordsList.at(i).second);
 
                         /* Добавляем слово в локальный словрь */
                         words.append(data);
