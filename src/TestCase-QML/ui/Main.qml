@@ -568,6 +568,10 @@ ApplicationWindow {
     Connections {
         target: fileReader
 
+        function onDisableCanceling() {
+            actionItem.enabled = false
+        }
+
         function onErrorOccured(error) {
             if (mainWorkButton.state === "working") {
                 mainWorkButton.state = "prepared"
@@ -578,6 +582,9 @@ ApplicationWindow {
 
         function onCurrentProgressChanged() {
             if (fileReader.currentProgress >= fileReader.totalFileLength) {
+                /* Включаем кнопки */
+                actionItem.enabled = true
+
                 mainWorkButton.state = "idle"
 
                 /* Обновления интерфейс конечными значениями */

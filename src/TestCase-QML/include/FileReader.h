@@ -158,9 +158,10 @@ public slots:
     }
 
 signals:
+    void disableCanceling();
+    void errorOccured(const FileReaderError error, const QString& reason);
     void mostUsableWordsChanged(const QList<QVariantList>& words);
     void newWordFoundChanged(const QString& word);
-    void errorOccured(const FileReaderError error, const QString& reason);
     void workCanceledChanged();
 
     void pauseChanged();

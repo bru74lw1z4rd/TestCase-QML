@@ -25,6 +25,7 @@ bool FileReader::prepareFile(QString filePath)
         m_canceled = false;
         m_currentProgress = 0;
         m_totalFileLength = 0;
+        m_dictionary.clear();
 
         QFile file(filePath);
         if (file.open(QIODevice::ReadOnly)) {
@@ -100,7 +101,11 @@ void FileReader::startWork()
                 }
             }
 
-            /// FIXME: если во время сортировки нажать кнопку отмены, крашнется
+            /*
+             * Отключаем возможность паузы и остановки в самом конце процесса подсчета слов,
+             * т.к. это опасно и банально бесполезно
+             */
+            emit disableCanceling();
 
             /* Сортируем полученные значения по value */
             std::sort(m_dictionary.begin(), m_dictionary.end(), [](const QPair<QString, quint32>& firstValue, const QPair<QString, quint32>& secondValue) {
