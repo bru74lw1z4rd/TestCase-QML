@@ -67,7 +67,7 @@ ApplicationWindow {
 
         onTriggered: {
             if (mainWorkButton.state !== "idle") {
-                wordsCountText.text = "Количество слов: " + fileReader.currentProgress
+                wordsCountText.setWordCount(fileReader.currentProgress)
             }
         }
     }
@@ -157,6 +157,10 @@ ApplicationWindow {
             horizontalAlignment: Text.AlignRight
 
             wrapMode: Text.NoWrap
+
+            function setWordCount(wordCount) {
+                wordsCountText.text = qsTr("Количество слов: ") + (wordCount + 1)
+            }
 
             anchors {
                 top: parent.top
@@ -400,7 +404,7 @@ ApplicationWindow {
 
                 /* Обновления интерфейс конечными значениями */
                 fileReader.getLastMostUsableWords()
-                wordsCountText.text = "Количество слов: " + fileReader.currentProgress
+                wordsCountText.setWordCount(fileReader.currentProgress)
 
                 barChart.removeEmptySkeletons()
 
