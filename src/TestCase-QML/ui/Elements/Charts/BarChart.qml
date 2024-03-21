@@ -48,7 +48,10 @@ ListView {
         SubHeading {
             id: chartText
 
-            width: (applicationWindow.width < 400) ? 100 : 200
+            readonly property real maximumWidth: 200
+            readonly property real minimumWidth: 125
+
+            width: (Qt.platform.os === "ios" || Qt.platform.os === "android") ? minimumWidth : maximumWidth
 
             text: wordName
 

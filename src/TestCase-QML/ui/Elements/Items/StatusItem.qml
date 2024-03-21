@@ -34,7 +34,7 @@ Item {
     Heading {
         id: statusItemHeading
 
-        text: qsTr("Выберите файл для подсчета файлов")
+        text: qsTr("Выберите файл для подсчета слов")
 
         font.pointSize: 23
 
