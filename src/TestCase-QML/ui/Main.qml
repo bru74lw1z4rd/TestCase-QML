@@ -52,7 +52,9 @@ ApplicationWindow {
         repeat: true
 
         onTriggered: {
-            fileReader.getLastMostUsableWords()
+            if (mainWorkButton.state !== "idle") {
+                fileReader.getLastMostUsableWords()
+            }
         }
     }
 
@@ -64,7 +66,9 @@ ApplicationWindow {
         repeat: true
 
         onTriggered: {
-            wordsCountText.text = "Количество слов: " + fileReader.currentProgress
+            if (mainWorkButton.state !== "idle") {
+                wordsCountText.text = "Количество слов: " + fileReader.currentProgress
+            }
         }
     }
 
@@ -444,7 +448,7 @@ ApplicationWindow {
         }
 
         function onMostUsableWordsChanged(words) {
-            if (words.length <= privates.maxChartBars) {
+            if (words.length <= privates.maxChartBars && mainWorkButton.state !== "idle") {
                 for (let i = 0; i < words.length; ++i) {
                     barChart.changeItemIndex(i, words[i][0], words[i][1], words[0][1])
                 }
@@ -452,12 +456,12 @@ ApplicationWindow {
         }
 
         function onWorkCanceledChanged() {
-            privates.clearUi()
-
             mainWorkButton.state = "idle"
 
             progressBar.value = 0
             progressBar.to = 0
+
+            privates.clearUi()
 
             informationDialog.show(qsTr("Обработка файла была успешна отменена!"))
         }

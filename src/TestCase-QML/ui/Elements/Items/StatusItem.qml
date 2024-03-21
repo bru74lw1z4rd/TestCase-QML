@@ -50,14 +50,14 @@ Item {
     SubHeading {
         id: statusItemSubHeading
 
-        text: qsTr("Для начала работы, требуется выбрать файл формата .txt")
+        text: qsTr("Для начала работы, требуется выбрать файл формата .txt и нажать кнопку начать")
 
         anchors {
             top: statusItemHeading.bottom
             left: parent.left
             right: parent.right
 
-            topMargin: 5
+            topMargin: (Qt.platform.os === "ios" || Qt.platform.os === "android") ? 5 : 0
         }
     }
 }
