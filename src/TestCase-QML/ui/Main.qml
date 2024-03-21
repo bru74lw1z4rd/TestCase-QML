@@ -100,11 +100,7 @@ ApplicationWindow {
         nameFilters: [ "Text files (*.txt)" ]
 
         onAccepted: {
-            if (fileReader.prepareFile(fileDialog.selectedFile) === false) {
-                informationDialog.show(qsTr("Не удалось подготовить файл для дальнейшей обработки!"))
-            } else {
-                mainWorkButton.state = "prepared"
-            }
+            fileReader.prepareFile(fileDialog.selectedFile)
         }
     }
 
@@ -392,7 +388,7 @@ ApplicationWindow {
         target: fileReader
 
         function onCurrentProgressChanged() {
-            if (fileReader.currentProgress >= fileReader.totalFileLength) {
+            if ((fileReader.currentProgress >= fileReader.totalFileLength) && mainWorkButton.state != "idle") {
                 /* Включаем кнопки */
                 actionItem.enabled = true
 
@@ -401,6 +397,8 @@ ApplicationWindow {
                 /* Обновления интерфейс конечными значениями */
                 fileReader.getLastMostUsableWords()
                 wordsCountText.text = "Количество слов: " + fileReader.currentProgress
+
+                barChart.removeEmptySkeletons()
 
                 informationDialog.show(qsTr("Файл был успешно прочитан. Полную статистику по словам можно посмотреть на графике."))
             } else {
@@ -413,11 +411,21 @@ ApplicationWindow {
         }
 
         function onErrorOccured(error) {
-            if (mainWorkButton.state === "working") {
-                mainWorkButton.state = "prepared"
-            }
+            if (error === FileReaderError.ReadingError) {
+                if (mainWorkButton.state === "working") {
+                    mainWorkButton.state = "prepared"
+                }
 
-            informationDialog.show(qsTr("Не удалось запустить обработку файла!"))
+                informationDialog.show(qsTr("Не удалось запустить обработку файла!"))
+            } else if (error ===  FileReaderError.PreparingFileError) {
+                mainWorkButton.state = "idle"
+
+                informationDialog.show(qsTr("Не удалось подготовить файл для дальнейшей обработки!"))
+            }
+        }
+
+        function onPrepareFileChanged() {
+            mainWorkButton.state = "prepared"
         }
 
         function onTotalFileLengthChanged() {
@@ -425,11 +433,13 @@ ApplicationWindow {
         }
 
         function onRunningChanged() {
-            /* Добваляем скелетоны */
-            let skeletonsCount = (fileReader.totalFileLength >= privates.maxChartBars) ? privates.maxChartBars : fileReader.totalFileLength
+            if (fileReader.running === true) {
+                /* Добваляем скелетоны */
+                let skeletonsCount = (fileReader.totalFileLength >= privates.maxChartBars) ? privates.maxChartBars : fileReader.totalFileLength
 
-            for (let i = 0; i < skeletonsCount; ++i) {
-                barChart.addNewWord("...", 0, 50)
+                for (let i = 0; i < skeletonsCount; ++i) {
+                    barChart.addNewWord(barChart.skeletonWordName, 0, 50)
+                }
             }
         }
 
@@ -442,6 +452,8 @@ ApplicationWindow {
         }
 
         function onWorkCanceledChanged() {
+            privates.clearUi()
+
             mainWorkButton.state = "idle"
 
             progressBar.value = 0

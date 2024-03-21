@@ -50,12 +50,14 @@ Item {
     SubHeading {
         id: statusItemSubHeading
 
-        text: qsTr("Чтобы программа начала работала, требуется выбрать файл формата .txt")
+        text: qsTr("Для начала работы, требуется выбрать файл формата .txt")
 
         anchors {
             top: statusItemHeading.bottom
             left: parent.left
             right: parent.right
+
+            topMargin: 5
         }
     }
 }

@@ -16,6 +16,8 @@ import "qrc:/Elements/Texts"
 ListView {
     id: barChart
 
+    readonly property string skeletonWordName: "..."
+
     clip: true
     interactive: true
 
@@ -36,9 +38,25 @@ ListView {
     }
 
     function changeItemIndex(itemIndex, wordName, wordCount, maxWordWidth) {
-        barChart.model.setProperty(itemIndex, "wordName", wordName)
-        barChart.model.setProperty(itemIndex, "wordCount", wordCount)
-        barChart.model.setProperty(itemIndex, "maxWordWidth", maxWordWidth)
+        if (barChart.count < privates.maxChartBars) {
+            barChart.model.set(itemIndex, {
+                                   "wordName": wordName,
+                                   "wordCount": wordCount,
+                                   "maxWordWidth": maxWordWidth
+                               })
+        } else {
+            barChart.model.setProperty(itemIndex, "wordName", wordName)
+            barChart.model.setProperty(itemIndex, "wordCount", wordCount)
+            barChart.model.setProperty(itemIndex, "maxWordWidth", maxWordWidth)
+        }
+    }
+
+    function removeEmptySkeletons() {
+        for (let i = 0; i < barChart.count; ++i) {
+            if (barChart.model.get(i).wordName === skeletonWordName) {
+                barChart.model.remove(i, 1)
+            }
+        }
     }
 
     delegate: Item {
@@ -69,7 +87,7 @@ ListView {
             }
         }
 
-        ProgressBar { /// NOTE: не, ну должен же был я хоть немного в тестовом поугарать :p
+        ProgressBar {
             id: chatBar
 
             from: 0
@@ -79,7 +97,7 @@ ListView {
 
             Behavior on value {
                 NumberAnimation {
-                    duration: 2000
+                    duration: 1500
                     easing.type: Easing.OutQuart
                 }
             }
