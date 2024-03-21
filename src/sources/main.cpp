@@ -1,7 +1,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
-#include <include/FileReader.h>
+#include <include/FileReader/FileReader.h>
 
 int main(int argc, char* argv[])
 {
