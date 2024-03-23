@@ -30,6 +30,8 @@ https://github.com/bru74lw1z4rd/TestCase-QML/assets/66485293/7e8c015a-d537-44b9-
 
 https://github.com/bru74lw1z4rd/TestCase-QML/assets/66485293/11bb9bad-4039-44cc-849c-5b49f60ec8ce
 
+https://github.com/bru74lw1z4rd/TestCase-QML/assets/66485293/2cdf1239-1fef-4680-a6f8-f1849ce0dbbb
+
 **Android:**
 
 https://github.com/bru74lw1z4rd/TestCase-QML/assets/66485293/934ad582-ef9a-4b09-94a8-20fbf9605cb1
