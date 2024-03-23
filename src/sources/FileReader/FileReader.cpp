@@ -104,6 +104,9 @@ void FileReader::startWork()
                         /* Вставляет данные в словарь для подсчета */
                         m_wordsDictionary.insert(match.captured(), m_wordsDictionary.value(match.captured()) + 1);
 
+                        /* Лочим мьютекс, чтобы избежать одновременного изменения m_wordsList */
+                        QMutexLocker locker(&m_wordsListMutex);
+
                         /*
                          * Т.к. QHash не сортируется, требуется создать QList,
                          * который будет отсортирован, данные операции с QList значительно замедляют код,
@@ -113,8 +116,11 @@ void FileReader::startWork()
                             return firstValue.first == match.captured();
                         });
 
+                        /* Проверяем, существует ли элемент в списке, если существует, добавляем */
                         if (searchIterator != m_wordsList.end()) {
-                            searchIterator->second = m_wordsDictionary.value(match.captured());
+                            if (!searchIterator->first.isEmpty()) {
+                                searchIterator->second = m_wordsDictionary.value(match.captured());
+                            }
                         } else {
                             m_wordsList.append(QPair<QString, quint32>(match.captured(), m_wordsDictionary.value(match.captured())));
                         }
@@ -155,6 +161,9 @@ void FileReader::getLastMostUsableWords()
         static_cast<void>(QtConcurrent::run(&m_workThreadPool, [&]() {
             /* Помечаем, что пользовательский запрос на получение уже обрабатывается */
             m_mostUsableWordsRequested = true;
+
+            /* Лочим мьютекс, чтобы избежать одновременного изменения m_wordsList */
+            QMutexLocker locker(&m_wordsListMutex);
 
             QList<QVariantList> words;
 
