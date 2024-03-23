@@ -13,5 +13,5 @@ SOURCES += \
 
 RESOURCES += \
     ui/ui.qrc \
-    assets/assets.qrc \
+    assets/assets.qrc
 

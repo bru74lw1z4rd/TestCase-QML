@@ -17,15 +17,15 @@ import "qrc:/Elements/Texts"
 ApplicationWindow {
     id: applicationWindow
 
-    width: 640
-    height: 480
+    width: applicationWindow.minimumWidth
+    height: applicationWindow.minimumHeight
+
+    minimumWidth: 640
+    minimumHeight: 480
 
     visible: true
 
     title: qsTr("TestCase")
-
-    minimumWidth: 640
-    minimumHeight: 480
 
     QtObject {
         id: privates
@@ -114,6 +114,11 @@ ApplicationWindow {
 
     StatusItem {
         id: statusItem
+
+        height: 200
+        width: applicationWindow.width / 2
+
+        visible: (barChart.model.count > 0) ? false : true
     }
 
     Pane {
@@ -452,6 +457,10 @@ ApplicationWindow {
         }
 
         function onMostUsableWordsChanged(words) {
+            /*
+             * Проверяем максимально возможное кол-во элементов графика,
+             * чтобы не отрисовать больше макимального
+             */
             if (words.length <= privates.maxChartBars) {
                 for (let i = 0; i < words.length; ++i) {
                     barChart.changeItemIndex(i, words[i][0], words[i][1], words[0][1])

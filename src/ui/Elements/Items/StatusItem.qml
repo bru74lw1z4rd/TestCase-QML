@@ -7,22 +7,21 @@ import "qrc:/Elements/Texts"
 Item {
     id: statusItem
 
-    height: 200
-    width: applicationWindow.width / 2
-
-    visible: (barChart.model.count > 0) ? false : true
+    property string statusItemIconSource: "qrc:/emoji/smart.svg"
+    property string statusItemHeading: qsTr("Выберите файл для подсчета слов")
+    property string statusItemSubHeading: qsTr("Для начала работы, требуется выбрать файл формата .txt и нажать кнопку начать")
 
     anchors {
         centerIn: parent
     }
 
     SvgImage {
-        id: statusItemIcon
+        id: iconImage
 
         height: 80
         width: height
 
-        imageSource: "qrc:/emoji/smart.svg"
+        imageSource: statusItemIconSource
 
         anchors {
             horizontalCenter: parent.horizontalCenter
@@ -32,14 +31,14 @@ Item {
     }
 
     Heading {
-        id: statusItemHeading
+        id: heading
 
-        text: qsTr("Выберите файл для подсчета слов")
+        text: statusItemHeading
 
         font.pointSize: 23
 
         anchors {
-            top: statusItemIcon.bottom
+            top: iconImage.bottom
             left: parent.left
             right: parent.right
 
@@ -48,12 +47,12 @@ Item {
     }
 
     SubHeading {
-        id: statusItemSubHeading
+        id: subHeading
 
-        text: qsTr("Для начала работы, требуется выбрать файл формата .txt и нажать кнопку начать")
+        text: statusItemSubHeading
 
         anchors {
-            top: statusItemHeading.bottom
+            top: heading.bottom
             left: parent.left
             right: parent.right
 
