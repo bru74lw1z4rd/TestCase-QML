@@ -47,7 +47,7 @@ ApplicationWindow {
     Timer {
         id: dynamicWordsChangerTimer
 
-        interval: 500
+        interval: 100
         running: (fileReader.paused === false && fileReader.running === true) ? true : false
         repeat: true
 
@@ -61,7 +61,7 @@ ApplicationWindow {
     Timer {
         id: textCountTimer
 
-        interval: 1000
+        interval: 500
         running: (fileReader.paused === false && fileReader.running === true) ? true : false
         repeat: true
 
