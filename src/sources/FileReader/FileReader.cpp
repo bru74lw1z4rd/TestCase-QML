@@ -156,8 +156,6 @@ void FileReader::getLastMostUsableWords()
             /* Помечаем, что пользовательский запрос на получение уже обрабатывается */
             m_mostUsableWordsRequested = true;
 
-            QMutexLocker locker(&m_wordsListMutext);
-
             QList<QVariantList> words;
 
             /* Сортируем лист, только если в этот момент у нас запущена обработка */

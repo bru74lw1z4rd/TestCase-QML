@@ -190,7 +190,6 @@ private:
     /* Worker */
     /**********/
 
-    QMutex m_wordsListMutext;
     QMutex m_workThreadMutex;
     QWaitCondition m_workThreadWaitCondition;
     QThreadPool m_workThreadPool;
